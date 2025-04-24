@@ -1,0 +1,32 @@
+Program: exp
+Version: 1.0.0
+Operating System: Linux
+Programming Language: shell script
+Mode: Command Line
+Input Requirements:
+  - reads list of domain names from file
+  - default file is `~/.domains.txt`
+  - optional command line option:
+    - `-f filename` specify file to read instead of `~/.domains.txt`
+    - `-d example.com` specify a domain name to report instead of reading `~/.domains.txt`
+    - `--version` display version
+    - `--help` display help instructions
+Output Requirements:
+  - each line contains the domain name followed by the expiration date (according to `whois`)
+  - the date is the local date in DoW Day Month Year followed by the date as reported by `whois` (see Sample Run below)
+  - 1 second pause between lines
+  - if `whois` reports that a domain name is not found, then write 'available' instead of the date
+  - colour the output according to the following rules:
+    - if the domain is available then the line is in green
+    - if the domain expiration date is past then the line is in red
+    - if the domain expiration date is within the next 3 months then the line is in yellow or orange
+    - if the domain expiration date is more than 3 months away then the line is in normal white
+Error Handling:
+  - give appropriate error message on stderr if the file to be read is not found
+
+Sample Run:
+```
+$ exp
+bgiroux.ca: Tuesday 23 May 2028 (2028-05-23T13:49:56Z)
+girouxwoodcraft.ca: Friday 17 July 2026 (2026-07-17T20:44:43Z)
+```

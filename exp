@@ -1,0 +1,128 @@
+#!/bin/bash
+
+# exp - Shell script to check domain expiration dates
+# Copyright (C) 2025 Brian P. Giroux
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+
+PROGRAM_NAME="exp"
+PROGRAM_VERSION="1.0.0"
+DEFAULT_FILE="$HOME/.domains.txt"
+WHOIS_CMD=$(command -v whois)
+
+# ANSI colour codes
+RED="\033[0;31m"
+YELLOW="\033[1;33m"
+GREEN="\033[0;32m"
+WHITE="\033[0m"
+
+print_help() {
+  cat << EOF
+Usage: $PROGRAM_NAME [OPTIONS]
+
+Options:
+  -f FILE        Specify a file to read domain names from (default: ~/.domains.txt)
+  -d DOMAIN      Specify a single domain to check
+  --version      Show version information
+  --help         Show this help message
+EOF
+}
+
+print_version() {
+  echo "$PROGRAM_NAME version $PROGRAM_VERSION"
+}
+
+colour_output() {
+  local domain="$1"
+  local status="$2"
+  local now epoch expiry epoch_diff
+
+  if [[ "$status" == "available" ]]; then
+    echo -e "${GREEN}${domain}: available${WHITE}"
+  elif [[ "$status" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
+    now=$(date +%s)
+    expiry=$(date -d "$status" +%s 2>/dev/null)
+    if [[ -z "$expiry" ]]; then
+      echo "$domain: $status"
+      return
+    fi
+    epoch_diff=$((expiry - now))
+    local pretty_date=$(date -d "$status" '+%A %d %B %Y')
+    if (( epoch_diff < 0 )); then
+      echo -e "${RED}${domain}: ${pretty_date} ($status)${WHITE}"
+    elif (( epoch_diff <= 7776000 )); then # 3 months in seconds
+      echo -e "${YELLOW}${domain}: ${pretty_date} ($status)${WHITE}"
+    else
+      echo "${domain}: ${pretty_date} ($status)"
+    fi
+  else
+    echo "$domain: $status"
+  fi
+}
+
+get_expiry_date() {
+  local domain="$1"
+  local whois_output=$(whois "$domain" 2>/dev/null)
+
+  if echo "$whois_output" | grep -qi "No match for\|NOT FOUND\|Status: free"; then
+    colour_output "$domain" "available"
+  else
+    local expiry=$(echo "$whois_output" | grep -iE 'Expiry Date|Expiration Date' | head -n1 | sed -E 's/^[^:]*:[[:space:]]*//' | sed -E 's/\r//')
+    colour_output "$domain" "$expiry"
+  fi
+}
+
+# Parse arguments
+INPUT_FILE="$DEFAULT_FILE"
+SINGLE_DOMAIN=""
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    -f)
+      shift
+      INPUT_FILE="$1"
+      ;;
+    -d)
+      shift
+      SINGLE_DOMAIN="$1"
+      ;;
+    --version)
+      print_version
+      exit 0
+      ;;
+    --help)
+      print_help
+      exit 0
+      ;;
+    *)
+      echo "Error: Unrecognized option '$1'." >&2
+      print_help >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+if [[ -z "$WHOIS_CMD" ]]; then
+  echo "Error: Required command 'whois' not found in PATH." >&2
+  exit 1
+fi
+
+if [[ -n "$SINGLE_DOMAIN" ]]; then
+  get_expiry_date "$SINGLE_DOMAIN"
+else
+  if [[ ! -f "$INPUT_FILE" ]]; then
+    echo "Error: Unable to read domain list. File not found: '$INPUT_FILE'" >&2
+    exit 1
+  fi
+  while IFS= read -r domain; do
+    [[ -n "$domain" ]] || continue
+    get_expiry_date "$domain"
+    sleep 1
+  done < "$INPUT_FILE"
+fi
+
