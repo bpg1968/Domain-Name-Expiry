@@ -1,24 +1,31 @@
 #!/bin/bash
-
-# exp - Shell script to check domain expiration dates
-# Copyright (C) 2025 Brian P. Giroux
+ 
+# exp — Check expiration dates for domain names
+# Version: 1.1.0
+# Author: Brian P. Giroux
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-
+#
+# Copyright (C) 2025 Brian P. Giroux
 
 PROGRAM_NAME="exp"
-PROGRAM_VERSION="1.0.1"
+PROGRAM_VERSION="1.1.0"
 DEFAULT_FILE="$HOME/.domains.txt"
 WHOIS_CMD=$(command -v whois)
 
-# colour codes
-RED=$(tput setaf 1)
-YELLOW=$(tput setaf 3)
-GREEN=$(tput setaf 2)
-WHITE=$(tput sgr0)
+# ANSI colour codes
+RED="\033[0;31m"
+YELLOW="\033[1;33m"
+GREEN="\033[0;32m"
+WHITE="\033[0m"
+
+# Regex for validating domain names (POSIX compatible workaround)
+validate_domain() {
+  [[ "$1" =~ ^[a-zA-Z0-9.-]+$ ]] && [[ "$1" != -* ]] && [[ "$1" =~ \.[a-zA-Z]{2,63}$ ]]
+}
 
 print_help() {
   cat << EOF
@@ -112,17 +119,29 @@ if [[ -z "$WHOIS_CMD" ]]; then
   exit 1
 fi
 
+process_domain_list() {
+  while IFS= read -r domain; do
+    [[ -n "$domain" ]] || continue
+    if ! validate_domain "$domain"; then
+      echo "$domain"
+      continue
+    fi
+    get_expiry_date "$domain"
+    sleep 1
+  done < "$1"
+}
+
 if [[ -n "$SINGLE_DOMAIN" ]]; then
-  get_expiry_date "$SINGLE_DOMAIN"
+  if ! validate_domain "$SINGLE_DOMAIN"; then
+    echo "$SINGLE_DOMAIN"
+  else
+    get_expiry_date "$SINGLE_DOMAIN"
+  fi
 else
   if [[ ! -f "$INPUT_FILE" ]]; then
     echo "Error: Unable to read domain list. File not found: '$INPUT_FILE'" >&2
     exit 1
   fi
-  while IFS= read -r domain; do
-    [[ -n "$domain" ]] || continue
-    get_expiry_date "$domain"
-    sleep 1
-  done < "$INPUT_FILE"
+  process_domain_list "$INPUT_FILE"
 fi
 

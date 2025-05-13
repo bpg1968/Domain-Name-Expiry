@@ -1,5 +1,5 @@
 Program: exp
-Version: 1.0.1
+Version: 1.1.0
 Operating System: Linux
 Programming Language: shell script
 Mode: Command Line
@@ -12,6 +12,8 @@ Input Requirements:
     - `--version` display version
     - `--help` display help instructions
 Output Requirements:
+  - if the domain name does not match the following regex, just output the line as is and without sleep
+    - ^(?!\-)([a-zA-Z0-9\-]{1,63}(?<!\-)\.)+[a-zA-Z]{2,63}$
   - each line contains the domain name followed by the expiration date (according to `whois`)
   - the date is the local date in DoW Day Month Year followed by the date as reported by `whois` (see Sample Run below)
   - 1 second pause between lines
